@@ -1,39 +1,26 @@
 import streamlit as st
 from pytube import YouTube
-from moviepy.editor import VideoFileClip
-import whisper, os, uuid, tempfile
+import whisper
+import os
 
-st.title("🎙️ YouTube → Văn bản")
+st.title("🎙️ Chuyển giọng nói YouTube thành văn bản")
 
-url = st.text_input("🔗 Dán link YouTube ở đây:")
-run_btn = st.button("Chuyển đổi")
+video_url = st.text_input("Dán link YouTube vào đây:")
 
-def download_audio(y_url):
-    yt = YouTube(y_url)
-    stream = yt.streams.filter(only_audio=True).first()
-    return stream.download(filename=f"{uuid.uuid4().hex}.mp4")
+if st.button("Chuyển đổi"):
+    if not video_url:
+        st.warning("Bạn chưa nhập URL!")
+    else:
+        st.info("🔽 Đang tải video...")
+        yt = YouTube(video_url)
+        audio_stream = yt.streams.filter(only_audio=True).first()
+        audio_path = audio_stream.download(filename="audio.mp4")
 
-def extract_wav(mp4_path):
-    wav_path = tempfile.mktemp(suffix=".wav")
-    VideoFileClip(mp4_path).audio.write_audiofile(wav_path)
-    return wav_path
+        st.info("🧠 Đang chuyển giọng nói thành văn bản...")
+        model = whisper.load_model("base")
+        result = model.transcribe(audio_path)
 
-def transcribe(wav_path):
-    model = whisper.load_model("base")   # Có thể đổi thành 'tiny' nếu máy yếu
-    out = model.transcribe(wav_path)
-    return out["text"]
+        st.success("✅ Chuyển đổi xong!")
+        st.text_area("📄 Văn bản:", result["text"], height=300)
 
-if run_btn and url:
-    try:
-        with st.spinner("⬇️ Đang tải..."):
-            mp4_path = download_audio(url)
-        with st.spinner("🎧 Tách âm thanh..."):
-            wav_path = extract_wav(mp4_path)
-        with st.spinner("🧠 Nhận diện giọng nói..."):
-            text = transcribe(wav_path)
-        st.success("✅ Hoàn tất!")
-        st.text_area("📄 Văn bản:", text, height=300)
-    except Exception as e:
-        st.error(f"Lỗi: {e}")
-
-
+        os.remove(audio_path)
