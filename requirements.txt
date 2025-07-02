@@ -1,0 +1,7 @@
+streamlit==1.23.1
+pytube==15.0.0
+moviepy==1.0.3
+openai-whisper==20231117
+torchaudio==2.1.2
+torch==2.1.2
+
