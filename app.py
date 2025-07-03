@@ -1,26 +1,49 @@
 import streamlit as st
-from pytube import YouTube
 import whisper
+import yt_dlp
 import os
+import tempfile
 
-st.title("🎙️ Chuyển giọng nói YouTube thành văn bản")
+st.set_page_config(page_title="YouTube Voice to Text", layout="centered")
 
-video_url = st.text_input("Dán link YouTube vào đây:")
+st.title("🎧 Chuyển giọng nói từ YouTube thành văn bản")
+url = st.text_input("🔗 Dán link YouTube ở đây:")
 
-if st.button("Chuyển đổi"):
-    if not video_url:
-        st.warning("Bạn chưa nhập URL!")
-    else:
-        st.info("🔽 Đang tải video...")
-        yt = YouTube(video_url)
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        audio_path = audio_stream.download(filename="audio.mp4")
+if st.button("🎬 Chuyển đổi"):
+    if not url:
+        st.warning("⚠️ Bạn cần nhập link video YouTube.")
+        st.stop()
 
-        st.info("🧠 Đang chuyển giọng nói thành văn bản...")
-        model = whisper.load_model("base")
-        result = model.transcribe(audio_path)
+    with st.spinner("🔊 Đang tải và xử lý âm thanh..."):
+        # Tạo file tạm
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audio_path = os.path.join(tmpdir, "audio.mp3")
 
-        st.success("✅ Chuyển đổi xong!")
-        st.text_area("📄 Văn bản:", result["text"], height=300)
+            # Cấu hình yt-dlp để tải audio
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": audio_path,
+                "quiet": True,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }],
+            }
 
-        os.remove(audio_path)
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as e:
+                st.error(f"❌ Lỗi khi tải video: {e}")
+                st.stop()
+
+            # Load mô hình Whisper và phiên âm
+            try:
+                model = whisper.load_model("base")
+                result = model.transcribe(audio_path)
+                st.success("✅ Hoàn tất!")
+                st.subheader("📄 Văn bản:")
+                st.write(result["text"])
+            except Exception as e:
+                st.error(f"❌ Lỗi khi chuyển âm thanh thành văn bản: {e}")
